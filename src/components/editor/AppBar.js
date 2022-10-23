@@ -12,9 +12,7 @@ import { Dialog, DialogActions,DialogContent, DialogTitle, Button, TextField } f
 const untitled_filename = "Untitled";
 const api = "http://localhost:3003";
 const default_props = {
-    filename: untitled_filename,
     openFile: ()=>{},
-    files: [],
 };
 
 class EditorAppBar extends React.Component {
@@ -23,33 +21,42 @@ class EditorAppBar extends React.Component {
         this.state = {
             showSideBar: false,
             showCreateFileDialog: false,
+            files: {},
+            currnetFile: untitled_filename
         }
-        this.openFile = props.openFile;
+        this.openFileDelegate = props.openFile;
+    }
+    componentDidMount = () => {
+        this.listFiles();
     }
     toggleDrawer = (show) => (event) => {
-        if (
-            event &&
-            event.type === 'keydown' &&
-            (event.key === 'Tab' || event.key === 'Shift')
-        ) {
-            return;
-        }
-        console.log("opaaa")
-        this.setState({ ...this.state, showSideBar: show });
+        this.setState((state) => ({ ...state, showSideBar: show, test:1 }));
     };
 
     toggleCreateFileDialog = (show) => {
-        this.setState({ ...this.state, showCreateFileDialog: show });
+        this.setState((state) => ({ ...state, showCreateFileDialog: show }));
     }
 
+    openFile = (path) => {
+        this.toggleDrawer(false)();
+        this.openFileDelegate(path);
+        let pathComponents = path.split("/") 
+        this.setState((state) => ({...state, currnetFile: pathComponents[pathComponents.length - 1]}))
+    }
     createFile = () => {
         let filename = document.getElementById("newFileName").value;
-        fetch(api+"/touch?path="+filename).then((resp) => {
-            console.log(resp);
-        }, console.error)
-        this.toggleCreateFileDialog(false);
+        fetch(api+"/touch?path="+filename).then(_ => {
+            this.toggleCreateFileDialog(false);
+            this.listFiles();
+        }, console.error);
     }
-
+    listFiles = () => {
+        fetch(api+"/ls").then((resp => {
+            resp.json().then(data => {
+                this.setState((state)=>({...state, files:data.files}));
+            })
+        }), console.error);
+    }
     render() {
         return <>
             <AppBar position="static">
@@ -67,9 +74,8 @@ class EditorAppBar extends React.Component {
                         variant="h6"
                         component="div"
                         sx={{ flexGrow: 1 }}
-                        key={this.props.fileName}>
-                        {this.props.fileName ?
-                        this.props.fileName : untitled_filename}
+                        key={this.state.currnetFile}>
+                        {this.state.currnetFile}
                     </Typography>
                 </Toolbar>
             </AppBar>
@@ -87,11 +93,16 @@ class EditorAppBar extends React.Component {
                     <AddCard />
                 </IconButton>
                 <Divider/>
-                {this.props.files.map(
-                    (v) => <h1 
-                        key={v}
-                        onClick={() => this.openFile(v)}
-                    >{v}</h1>)
+                {
+                    (() => {
+                        let items = [];
+                        for (let path in this.state.files) {
+                            items.push(<h1
+                            key={path}
+                            onClick={() => this.openFile(path)}>{path}</h1>)
+                        }
+                        return <>{items}</>;
+                    })()
                 }
             </SwipeableDrawer>
             <Dialog
